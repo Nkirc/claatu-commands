@@ -1,0 +1,46 @@
+#!/bin/bash
+
+#From R Studio
+#OTU/ASV table - otu_table.txt
+#Taxonomy table - dada_tax.txt
+
+#On The Server
+
+R
+library(ape)
+library(phangorn)
+df <- read.table(“otu_table.txt”)
+df.2 <- t(df)
+
+ds #rar_tree.tre is the tree from the rarefied phyloseq object
+mid.tree <- midpoint(tree)
+write.tree(mid.tree, “mid_tree.tre”)
+
+#create symlink to claatu scripts
+ln -s /raid1/home/micro/gaulkec/bin/claatu/Claatu/bin claatu_scripts
+
+python claatu_scripts/prep_tree.py mid_tree.tre
+
+nano tra_otu_table.txt
+#### added a #OTU ID to the file
+#OTU/space/ID/tab
+
+python claatu_scripts/count_tree.py tra_otu_table.txt new_prepped_tree.tre count_tree.out
+
+perl claatu_scripts/dada2_tax_convert.pl tax.txt > new_tax.txt
+
+#Replacing the NAs
+vim new_tax.txt
+: %s/NA//g
+:wq
+
+#Replacing the quotation marks
+vim new_tax.txt
+: %s/“//g
+:wq
+
+python claatu_scripts/clade_stat.py new_prepped_tree.tre new_tax.txt . -p hvw
+
+python claatu_scripts/tax_parser.py hvw_nodes2tax.txt shared_out.txt
+
+python claatu_scripts/node_info.py new_prepped_tree.tre . -p hvw
